@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#jsonfile
+spartan-amphora-450312-r7-3701fd7ff772.json

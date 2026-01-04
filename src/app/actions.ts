@@ -7,18 +7,13 @@ import {
     getInventoryByBranch,
     updateInventoryStock,
     addSaleRecord,
-    getSalesByBranchAndDate,
     addExpenseRecord,
     getExpensesByBranch,
-    getSalesByBranchForMonth,
-    getExpensesByBranchForMonth,
-    getDailySalesForWeek,
     getAllSalesByBranch,
     getSalesByBranchDateRange,
     getExpensesByBranchDateRange,
     getDailySalesForRange,
     type InventoryItem as InventoryItemType,
-    type Recipe,
     type Expense as ExpenseType,
     type Sale as SaleType,
 } from "@/lib/googleSheets";
@@ -80,9 +75,6 @@ export async function logout(): Promise<void> {
 export interface MenuItem {
     menu_name: string;
     sell_price: number;
-    ingredients: string;
-    available_stock: number;
-    cogs: number;
 }
 
 export async function getMenu(): Promise<MenuItem[]> {
@@ -91,45 +83,13 @@ export async function getMenu(): Promise<MenuItem[]> {
         redirect("/login");
     }
 
+    // Simply get all recipes - ignore ingredients and stock
     const recipes = await getAllRecipes();
-    const inventory = await getInventoryByBranch(session.branch_id);
 
-    // Create inventory map for quick lookup
-    const inventoryMap = new Map<string, InventoryItemType>();
-    for (const item of inventory) {
-        inventoryMap.set(item.id, item);
-    }
-
-    const menuItems: MenuItem[] = [];
-
-    for (const recipe of recipes) {
-        const parsedIngredients = parseIngredients(recipe.ingredients);
-
-        // Calculate available stock (minimum servings possible)
-        let availableStock = Infinity;
-        let totalCogs = 0;
-
-        for (const ing of parsedIngredients) {
-            const invItem = inventoryMap.get(ing.itemId);
-            if (!invItem) {
-                availableStock = 0;
-                break;
-            }
-            const possibleServings = Math.floor(invItem.stock / ing.qty);
-            availableStock = Math.min(availableStock, possibleServings);
-            totalCogs += invItem.cost_per_unit * ing.qty;
-        }
-
-        if (availableStock === Infinity) availableStock = 0;
-
-        menuItems.push({
-            menu_name: recipe.menu_name,
-            sell_price: recipe.sell_price,
-            ingredients: recipe.ingredients,
-            available_stock: availableStock,
-            cogs: totalCogs,
-        });
-    }
+    const menuItems: MenuItem[] = recipes.map((recipe) => ({
+        menu_name: recipe.menu_name,
+        sell_price: recipe.sell_price,
+    }));
 
     return menuItems;
 }
@@ -140,15 +100,12 @@ export interface CartItem {
     menu_name: string;
     qty: number;
     sell_price: number;
-    cogs: number;
-    ingredients: string;
 }
 
 export interface SaleResult {
     success: boolean;
     error?: string;
     totalPrice?: number;
-    totalProfit?: number;
 }
 
 export async function processSale(cart: CartItem[]): Promise<SaleResult> {
@@ -158,57 +115,13 @@ export async function processSale(cart: CartItem[]): Promise<SaleResult> {
     }
 
     try {
-        const inventory = await getInventoryByBranch(session.branch_id);
-        const inventoryMap = new Map<string, InventoryItemType>();
-        for (const item of inventory) {
-            inventoryMap.set(item.id, item);
-        }
-
-        // First pass: validate stock availability
-        const stockChanges: Map<string, { rowNumber: number; newStock: number }> = new Map();
-
-        for (const cartItem of cart) {
-            const parsedIngredients = parseIngredients(cartItem.ingredients);
-
-            for (const ing of parsedIngredients) {
-                const invItem = inventoryMap.get(ing.itemId);
-                if (!invItem || !invItem.rowIndex) {
-                    return { success: false, error: `Bahan ${ing.itemId} tidak ditemukan` };
-                }
-
-                const requiredQty = ing.qty * cartItem.qty;
-                const existing = stockChanges.get(ing.itemId);
-                const currentStock = existing ? existing.newStock : invItem.stock;
-
-                if (currentStock < requiredQty) {
-                    return {
-                        success: false,
-                        error: `Stok ${invItem.name} tidak cukup (tersedia: ${currentStock}, dibutuhkan: ${requiredQty})`,
-                    };
-                }
-
-                stockChanges.set(ing.itemId, {
-                    rowNumber: invItem.rowIndex,
-                    newStock: currentStock - requiredQty,
-                });
-            }
-        }
-
-        // Second pass: update inventory
-        for (const [, change] of stockChanges) {
-            await updateInventoryStock(change.rowNumber, change.newStock);
-        }
-
-        // Third pass: record sales
+        // Simple sale recording - no stock validation, no COGS calculation
         const now = new Date();
         const dateWithTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
         let totalPrice = 0;
-        let totalProfit = 0;
 
         for (const cartItem of cart) {
             const itemTotalPrice = cartItem.sell_price * cartItem.qty;
-            const itemTotalCogs = cartItem.cogs * cartItem.qty;
-            const itemProfit = itemTotalPrice - itemTotalCogs;
 
             await addSaleRecord({
                 branch_id: session.branch_id,
@@ -216,15 +129,14 @@ export async function processSale(cart: CartItem[]): Promise<SaleResult> {
                 menu_name: cartItem.menu_name,
                 qty: cartItem.qty,
                 total_price: itemTotalPrice,
-                cogs_total: itemTotalCogs,
-                profit: itemProfit,
+                cogs_total: 0, // No COGS calculation
+                profit: itemTotalPrice, // Profit = total price (since no COGS)
             });
 
             totalPrice += itemTotalPrice;
-            totalProfit += itemProfit;
         }
 
-        return { success: true, totalPrice, totalProfit };
+        return { success: true, totalPrice };
     } catch (error) {
         console.error("Process sale error:", error);
         return { success: false, error: "Terjadi kesalahan saat memproses penjualan" };

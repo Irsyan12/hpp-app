@@ -9,24 +9,17 @@ interface POSClientProps {
     initialMenu: MenuItem[];
 }
 
-interface CartItemWithQty extends CartItem {
-    maxStock: number;
-}
-
 export default function POSClient({ initialMenu }: POSClientProps) {
     const router = useRouter();
-    const [cart, setCart] = useState<CartItemWithQty[]>([]);
+    const [cart, setCart] = useState<CartItem[]>([]);
     const [showCart, setShowCart] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<SaleResult | null>(null);
 
     const addToCart = (item: MenuItem) => {
-        if (item.available_stock <= 0) return;
-
         setCart((prev) => {
             const existing = prev.find((c) => c.menu_name === item.menu_name);
             if (existing) {
-                if (existing.qty >= existing.maxStock) return prev;
                 return prev.map((c) =>
                     c.menu_name === item.menu_name ? { ...c, qty: c.qty + 1 } : c
                 );
@@ -37,9 +30,6 @@ export default function POSClient({ initialMenu }: POSClientProps) {
                     menu_name: item.menu_name,
                     qty: 1,
                     sell_price: item.sell_price,
-                    cogs: item.cogs,
-                    ingredients: item.ingredients,
-                    maxStock: item.available_stock,
                 },
             ];
         });
@@ -52,12 +42,11 @@ export default function POSClient({ initialMenu }: POSClientProps) {
                     if (c.menu_name === menuName) {
                         const newQty = c.qty + delta;
                         if (newQty <= 0) return null;
-                        if (newQty > c.maxStock) return c;
                         return { ...c, qty: newQty };
                     }
                     return c;
                 })
-                .filter(Boolean) as CartItemWithQty[]
+                .filter(Boolean) as CartItem[]
         );
     };
 
@@ -102,9 +91,7 @@ export default function POSClient({ initialMenu }: POSClientProps) {
                     <button
                         key={item.menu_name}
                         onClick={() => addToCart(item)}
-                        disabled={item.available_stock <= 0}
-                        className={`bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${item.available_stock <= 0 ? "opacity-50 cursor-not-allowed" : ""
-                            }`}
+                        className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
                     >
                         <div className="flex items-center justify-center w-12 h-12 bg-amber-100 rounded-xl mb-3">
                             <Coffee className="w-6 h-6 text-amber-700" />
@@ -114,14 +101,6 @@ export default function POSClient({ initialMenu }: POSClientProps) {
                         </h3>
                         <p className="text-amber-700 font-bold mt-1">
                             {formatCurrency(item.sell_price)}
-                        </p>
-                        <p
-                            className={`text-xs mt-1 ${item.available_stock <= 5
-                                ? "text-red-500"
-                                : "text-gray-500"
-                                }`}
-                        >
-                            Stok: {item.available_stock}
                         </p>
                     </button>
                 ))}
@@ -207,7 +186,7 @@ export default function POSClient({ initialMenu }: POSClientProps) {
 }
 
 interface CartContentProps {
-    cart: CartItemWithQty[];
+    cart: CartItem[];
     totalPrice: number;
     totalItems: number;
     isPending: boolean;
@@ -256,9 +235,6 @@ function CartContent({
                                 <p className="font-semibold">Transaksi Berhasil!</p>
                                 <p className="text-sm mt-1">
                                     Total: {formatCurrency(result.totalPrice || 0)}
-                                </p>
-                                <p className="text-sm">
-                                    Profit: {formatCurrency(result.totalProfit || 0)}
                                 </p>
                             </>
                         ) : (
@@ -312,7 +288,6 @@ function CartContent({
                                 <button
                                     onClick={() => updateQty(item.menu_name, 1)}
                                     className="p-1.5 bg-white rounded-lg border border-gray-200 hover:bg-gray-100"
-                                    disabled={item.qty >= item.maxStock}
                                 >
                                     <Plus className="w-4 h-4 text-gray-600" />
                                 </button>

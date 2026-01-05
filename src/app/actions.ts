@@ -116,8 +116,10 @@ export async function processSale(cart: CartItem[]): Promise<SaleResult> {
 
     try {
         // Simple sale recording - no stock validation, no COGS calculation
+        // Use Jakarta timezone (WIB) for correct local time
         const now = new Date();
-        const dateWithTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const jakartaTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+        const dateWithTime = `${jakartaTime.getFullYear()}-${String(jakartaTime.getMonth() + 1).padStart(2, "0")}-${String(jakartaTime.getDate()).padStart(2, "0")} ${String(jakartaTime.getHours()).padStart(2, "0")}:${String(jakartaTime.getMinutes()).padStart(2, "0")}`;
         let totalPrice = 0;
 
         for (const cartItem of cart) {
@@ -208,9 +210,10 @@ export async function getDashboardStats(
         redirect("/login");
     }
 
-    // Default to today if no dates provided
+    // Default to today if no dates provided (using Jakarta timezone)
     const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
+    const jakartaNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+    const todayStr = `${jakartaNow.getFullYear()}-${String(jakartaNow.getMonth() + 1).padStart(2, "0")}-${String(jakartaNow.getDate()).padStart(2, "0")}`;
 
     const start = startDate || todayStr;
     const end = endDate || todayStr;
@@ -296,7 +299,10 @@ export async function addExpense(formData: {
     }
 
     try {
-        const today = new Date().toISOString().split("T")[0];
+        // Use Jakarta timezone for correct local date
+        const now = new Date();
+        const jakartaNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+        const today = `${jakartaNow.getFullYear()}-${String(jakartaNow.getMonth() + 1).padStart(2, "0")}-${String(jakartaNow.getDate()).padStart(2, "0")} ${String(jakartaNow.getHours()).padStart(2, "0")}:${String(jakartaNow.getMinutes()).padStart(2, "0")}`;
         await addExpenseRecord({
             branch_id: session.branch_id,
             date: today,
@@ -318,7 +324,10 @@ export async function getExpenses(): Promise<Expense[]> {
         redirect("/login");
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    // Use Jakarta timezone for correct local date
+    const now = new Date();
+    const jakartaNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+    const today = `${jakartaNow.getFullYear()}-${String(jakartaNow.getMonth() + 1).padStart(2, "0")}-${String(jakartaNow.getDate()).padStart(2, "0")}`;
     return await getExpensesByBranch(session.branch_id, today);
 }
 

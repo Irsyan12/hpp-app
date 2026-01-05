@@ -119,7 +119,7 @@ export default function POSClient({ initialMenu }: POSClientProps) {
 
             {/* Fixed Bottom Cart Bar - Both Mobile & Desktop */}
             {cart.length > 0 && (
-                <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-20 z-50 bg-white border-t border-gray-200 shadow-lg">
+                <div className="fixed bottom-18 md:bottom-0 left-0 right-0 md:left-20 bg-white border-t border-gray-200 shadow-lg">
                     <button
                         onClick={() => setShowCart(true)}
                         className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
@@ -137,7 +137,7 @@ export default function POSClient({ initialMenu }: POSClientProps) {
                             </div>
                         </div>
                         <div className="flex items-center gap-2 bg-gradient-to-r from-amber-600 to-amber-700 text-white px-4 py-2 rounded-xl font-semibold">
-                            <span>Lihat Keranjang</span>
+                            <span>Lanjutkan</span>
                             <ChevronUp className="w-4 h-4" />
                         </div>
                     </button>
@@ -152,7 +152,7 @@ export default function POSClient({ initialMenu }: POSClientProps) {
                         onClick={() => setShowCart(false)}
                     />
                     <div className="absolute bottom-0 left-0 right-0 md:left-20 bg-white rounded-t-2xl max-h-[80vh] overflow-y-auto animate-slide-up">
-                        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
+                        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
                             <h2 className="font-bold text-lg text-gray-800">Keranjang</h2>
                             <button
                                 onClick={() => setShowCart(false)}

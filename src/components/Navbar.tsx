@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, LayoutDashboard, Wallet, ClipboardList, LogOut, Coffee } from "lucide-react";
 import { logout } from "@/app/actions";
+import toast from "react-hot-toast";
 
 interface NavbarProps {
     branchName: string;
@@ -20,8 +21,37 @@ export default function Navbar({ branchName, username }: NavbarProps) {
         { href: "/history", label: "Riwayat", icon: ClipboardList },
     ];
 
-    const handleLogout = async () => {
-        await logout();
+    const handleLogout = () => {
+        toast((t) => (
+            <div className="flex flex-col gap-3">
+                <p className="font-medium text-gray-800">Apakah Anda yakin ingin keluar?</p>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => {
+                            toast.dismiss(t.id);
+                        }}
+                        className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            toast.loading("Logging out...", { id: "logout" });
+                            await logout();
+                        }}
+                        className="flex-1 px-3 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600"
+                    >
+                        Ya, Keluar
+                    </button>
+                </div>
+            </div>
+        ), {
+            duration: Infinity,
+            style: {
+                maxWidth: '320px',
+            },
+        });
     };
 
     return (
@@ -40,7 +70,7 @@ export default function Navbar({ branchName, username }: NavbarProps) {
                         </div>
                         <button
                             onClick={handleLogout}
-                            className="p-2 rounded-full bg-amber-700/50 hover:bg-amber-700 transition-colors"
+                            className="p-2 rounded-full bg-amber-700/50 hover:bg-amber-700 hover:cursor-pointer transition-colors"
                             title="Logout"
                         >
                             <LogOut className="w-5 h-5" />

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ShoppingCart, Plus, Minus, Trash2, CreditCard, Coffee, AlertCircle, CheckCircle, X, ChevronUp } from "lucide-react";
 import { processSale, type MenuItem, type CartItem, type SaleResult } from "@/app/actions";
+import toast from "react-hot-toast";
 
 interface POSClientProps {
     initialMenu: MenuItem[];
@@ -65,12 +66,22 @@ export default function POSClient({ initialMenu }: POSClientProps) {
     const handleCheckout = () => {
         if (cart.length === 0) return;
 
+        const toastId = toast.loading("Memproses pembayaran...");
+
         startTransition(async () => {
             const saleResult = await processSale(cart);
             setResult(saleResult);
+
             if (saleResult.success) {
+                toast.success(
+                    `Transaksi berhasil! Total: ${formatCurrency(saleResult.totalPrice || 0)}`,
+                    { id: toastId }
+                );
                 setCart([]);
+                setShowCart(false);
                 router.refresh();
+            } else {
+                toast.error(saleResult.error || "Terjadi kesalahan", { id: toastId });
             }
         });
     };
@@ -108,7 +119,7 @@ export default function POSClient({ initialMenu }: POSClientProps) {
 
             {/* Fixed Bottom Cart Bar - Both Mobile & Desktop */}
             {cart.length > 0 && (
-                <div className="fixed bottom-0 left-0 right-0 md:left-20 z-40 bg-white border-t border-gray-200 shadow-lg mb-16 md:mb-0">
+                <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-20 z-30 bg-white border-t border-gray-200 shadow-lg">
                     <button
                         onClick={() => setShowCart(true)}
                         className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
@@ -140,7 +151,7 @@ export default function POSClient({ initialMenu }: POSClientProps) {
                         className="absolute inset-0 bg-black/50"
                         onClick={() => setShowCart(false)}
                     />
-                    <div className="absolute bottom-0 left-0 right-0 md:left-20 bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto animate-slide-up">
+                    <div className="absolute bottom-0 left-0 right-0 md:left-20 bg-white rounded-t-2xl max-h-[80vh] overflow-y-auto animate-slide-up">
                         <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
                             <h2 className="font-bold text-lg text-gray-800">Keranjang</h2>
                             <button

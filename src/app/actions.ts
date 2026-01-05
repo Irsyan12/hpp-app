@@ -208,13 +208,12 @@ export async function getDashboardStats(
         redirect("/login");
     }
 
-    // Default to current month if no dates provided
+    // Default to today if no dates provided
     const now = new Date();
-    const defaultStartDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    const defaultEndDate = now.toISOString().split("T")[0];
+    const todayStr = now.toISOString().split("T")[0];
 
-    const start = startDate || defaultStartDate;
-    const end = endDate || defaultEndDate;
+    const start = startDate || todayStr;
+    const end = endDate || todayStr;
 
     // Get sales data within date range
     const { totalIncome, totalCups } = await getSalesByBranchDateRange(

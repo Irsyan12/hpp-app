@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Plus, Loader2, Receipt } from "lucide-react";
 import { addExpense, type Expense } from "@/app/actions";
+import toast from "react-hot-toast";
 
 interface ExpensesClientProps {
     initialExpenses: Expense[];
@@ -62,6 +63,8 @@ export default function ExpensesClient({ initialExpenses }: ExpensesClientProps)
             return;
         }
 
+        const toastId = toast.loading("Menyimpan pengeluaran...");
+
         startTransition(async () => {
             const result = await addExpense({
                 item_name: itemName.trim(),
@@ -71,6 +74,11 @@ export default function ExpensesClient({ initialExpenses }: ExpensesClientProps)
             });
 
             if (result.success) {
+                toast.success(
+                    `Berhasil mencatat pengeluaran ${formatCurrency(amountRaw)}`,
+                    { id: toastId }
+                );
+
                 // Add to local state
                 const newExpense: Expense = {
                     branch_id: "",
@@ -91,6 +99,7 @@ export default function ExpensesClient({ initialExpenses }: ExpensesClientProps)
                 setSuccess(true);
                 setTimeout(() => setSuccess(false), 3000);
             } else {
+                toast.error(result.error || "Terjadi kesalahan", { id: toastId });
                 setError(result.error || "Terjadi kesalahan");
             }
         });
@@ -193,7 +202,7 @@ export default function ExpensesClient({ initialExpenses }: ExpensesClientProps)
                     <button
                         type="submit"
                         disabled={isPending}
-                        className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-amber-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-amber-700 hover:cursor-pointer transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                         {isPending ? (
                             <>

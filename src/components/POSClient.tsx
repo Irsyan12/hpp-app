@@ -102,7 +102,7 @@ export default function POSClient({ initialMenu }: POSClientProps) {
                     <button
                         key={item.menu_name}
                         onClick={() => addToCart(item)}
-                        className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+                        className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] hover:cursor-pointer"
                     >
                         <div className="flex items-center justify-center w-12 h-12 bg-amber-100 rounded-xl mb-3">
                             <Coffee className="w-6 h-6 text-amber-700" />
@@ -119,7 +119,7 @@ export default function POSClient({ initialMenu }: POSClientProps) {
 
             {/* Fixed Bottom Cart Bar - Both Mobile & Desktop */}
             {cart.length > 0 && (
-                <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-20 z-30 bg-white border-t border-gray-200 shadow-lg">
+                <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-20 z-50 bg-white border-t border-gray-200 shadow-lg">
                     <button
                         onClick={() => setShowCart(true)}
                         className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"

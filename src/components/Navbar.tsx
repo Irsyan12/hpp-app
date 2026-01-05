@@ -30,7 +30,7 @@ export default function Navbar({ branchName, username }: NavbarProps) {
                         onClick={() => {
                             toast.dismiss(t.id);
                         }}
-                        className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
+                        className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 hover:cursor-pointer"
                     >
                         Batal
                     </button>
@@ -40,7 +40,7 @@ export default function Navbar({ branchName, username }: NavbarProps) {
                             toast.loading("Logging out...", { id: "logout" });
                             await logout();
                         }}
-                        className="flex-1 px-3 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600"
+                        className="flex-1 px-3 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 hover:cursor-pointer"
                     >
                         Ya, Keluar
                     </button>

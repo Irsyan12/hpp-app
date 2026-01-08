@@ -1,21 +1,39 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Plus, Loader2, Receipt } from "lucide-react";
+import { useState, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Plus, Loader2, Receipt, Filter, Calendar } from "lucide-react";
 import { addExpense, type Expense } from "@/app/actions";
+import { format, startOfWeek, startOfMonth } from "date-fns";
+import { id as localeId } from "date-fns/locale";
 import toast from "react-hot-toast";
 
 interface ExpensesClientProps {
     initialExpenses: Expense[];
+    startDate: string;
+    endDate: string;
 }
 
 const CATEGORIES = ["Bahan Baku", "Operasional", "Lainnya"];
 
-export default function ExpensesClient({ initialExpenses }: ExpensesClientProps) {
+type FilterPreset = "today" | "week" | "month" | "custom";
+
+export default function ExpensesClient({ initialExpenses, startDate, endDate }: ExpensesClientProps) {
+    const router = useRouter();
     const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [showCustom, setShowCustom] = useState(false);
+    const [customStart, setCustomStart] = useState(startDate);
+    const [customEnd, setCustomEnd] = useState(endDate);
+
+    // Sync state when props change (when filter is applied and page refetches)
+    useEffect(() => {
+        setExpenses(initialExpenses);
+        setCustomStart(startDate);
+        setCustomEnd(endDate);
+    }, [initialExpenses, startDate, endDate]);
 
     // Form state
     const [itemName, setItemName] = useState("");
@@ -48,6 +66,62 @@ export default function ExpensesClient({ initialExpenses }: ExpensesClientProps)
         setAmountDisplay(numericValue > 0 ? formatThousands(numericValue) : "");
     };
 
+    const getCurrentPreset = (): FilterPreset => {
+        const now = new Date();
+        const todayStr = format(now, "yyyy-MM-dd");
+        const weekStartStr = format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
+        const monthStartStr = format(startOfMonth(now), "yyyy-MM-dd");
+
+        if (startDate === todayStr && endDate === todayStr) {
+            return "today";
+        } else if (startDate === weekStartStr && endDate === todayStr) {
+            return "week";
+        } else if (startDate === monthStartStr) {
+            return "month";
+        }
+        return "custom";
+    };
+
+    const handlePresetChange = (preset: FilterPreset) => {
+        const now = new Date();
+        let start: string;
+        let end: string = format(now, "yyyy-MM-dd");
+
+        switch (preset) {
+            case "today":
+                start = end;
+                break;
+            case "week":
+                start = format(startOfWeek(now, { weekStartsOn: 1 }), "yyyy-MM-dd");
+                break;
+            case "month":
+                start = format(startOfMonth(now), "yyyy-MM-dd");
+                break;
+            default:
+                setShowCustom(true);
+                return;
+        }
+
+        setShowCustom(false);
+        router.push(`/expenses?start=${start}&end=${end}`);
+    };
+
+    const handleCustomFilter = () => {
+        if (customStart && customEnd) {
+            router.push(`/expenses?start=${customStart}&end=${customEnd}`);
+        }
+    };
+
+    const formatDisplayDate = (dateStr: string) => {
+        try {
+            return format(new Date(dateStr), "d MMM yyyy", { locale: localeId });
+        } catch {
+            return dateStr;
+        }
+    };
+
+    const currentPreset = getCurrentPreset();
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -79,16 +153,22 @@ export default function ExpensesClient({ initialExpenses }: ExpensesClientProps)
                     { id: toastId }
                 );
 
-                // Add to local state
-                const newExpense: Expense = {
-                    branch_id: "",
-                    date: new Date().toISOString().split("T")[0],
-                    item_name: itemName.trim(),
-                    amount: amountRaw,
-                    category,
-                    note: note.trim(),
-                };
-                setExpenses([newExpense, ...expenses]);
+                // Get today's date in YYYY-MM-DD format
+                const now = new Date();
+                const todayStr = format(now, "yyyy-MM-dd");
+
+                // Only add to local state if today is within the filter range
+                if (todayStr >= startDate && todayStr <= endDate) {
+                    const newExpense: Expense = {
+                        branch_id: "",
+                        date: todayStr,
+                        item_name: itemName.trim(),
+                        amount: amountRaw,
+                        category,
+                        note: note.trim(),
+                    };
+                    setExpenses([newExpense, ...expenses]);
+                }
 
                 // Reset form
                 setItemName("");
@@ -105,14 +185,95 @@ export default function ExpensesClient({ initialExpenses }: ExpensesClientProps)
         });
     };
 
-    const totalToday = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
     return (
         <div className="space-y-6">
+            {/* Date Filter */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                    <Filter className="w-5 h-5 text-gray-500" />
+                    <span className="font-medium text-gray-700">Filter Waktu</span>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mb-3">
+                    <button
+                        onClick={() => handlePresetChange("today")}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${currentPreset === "today"
+                            ? "bg-amber-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                    >
+                        Hari Ini
+                    </button>
+                    <button
+                        onClick={() => handlePresetChange("week")}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${currentPreset === "week"
+                            ? "bg-amber-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                    >
+                        Minggu Ini
+                    </button>
+                    <button
+                        onClick={() => handlePresetChange("month")}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${currentPreset === "month"
+                            ? "bg-amber-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                    >
+                        Bulan Ini
+                    </button>
+                    <button
+                        onClick={() => setShowCustom(!showCustom)}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 ${currentPreset === "custom" || showCustom
+                            ? "bg-amber-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                    >
+                        <Calendar className="w-4 h-4" />
+                        Custom
+                    </button>
+                </div>
+
+                {showCustom && (
+                    <div className="flex flex-wrap items-end gap-3 pt-3 border-t border-gray-100">
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">Dari Tanggal</label>
+                            <input
+                                type="date"
+                                value={customStart}
+                                onChange={(e) => setCustomStart(e.target.value)}
+                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">Sampai Tanggal</label>
+                            <input
+                                type="date"
+                                value={customEnd}
+                                onChange={(e) => setCustomEnd(e.target.value)}
+                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            />
+                        </div>
+                        <button
+                            onClick={handleCustomFilter}
+                            className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition-colors"
+                        >
+                            Terapkan
+                        </button>
+                    </div>
+                )}
+
+                <p className="text-sm text-gray-500 mt-3">
+                    Menampilkan data: <span className="font-medium text-gray-700">{formatDisplayDate(startDate)}</span> - <span className="font-medium text-gray-700">{formatDisplayDate(endDate)}</span>
+                </p>
+            </div>
+
             {/* Summary Card */}
             <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl p-5 text-white shadow-lg">
-                <p className="text-red-100 text-sm mb-1">Total Pengeluaran Hari Ini</p>
-                <p className="text-3xl font-bold">{formatCurrency(totalToday)}</p>
+                <p className="text-red-100 text-sm mb-1">Total Pengeluaran</p>
+                <p className="text-3xl font-bold">{formatCurrency(totalExpenses)}</p>
             </div>
 
             {/* Add Expense Form */}
@@ -225,7 +386,7 @@ export default function ExpensesClient({ initialExpenses }: ExpensesClientProps)
                     <div className="p-2 bg-blue-100 rounded-xl">
                         <Receipt className="w-5 h-5 text-blue-600" />
                     </div>
-                    <h2 className="font-semibold text-gray-800">Riwayat Hari Ini</h2>
+                    <h2 className="font-semibold text-gray-800">Riwayat Pengeluaran</h2>
                     <span className="ml-auto bg-gray-100 text-gray-600 text-sm font-medium px-3 py-1 rounded-full">
                         {expenses.length} item
                     </span>
@@ -233,7 +394,7 @@ export default function ExpensesClient({ initialExpenses }: ExpensesClientProps)
 
                 {expenses.length === 0 ? (
                     <div className="p-8 text-center text-gray-500">
-                        <p>Belum ada pengeluaran hari ini</p>
+                        <p>Belum ada pengeluaran pada periode ini</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">

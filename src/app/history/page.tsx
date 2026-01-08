@@ -1,4 +1,4 @@
-import { getCurrentSession, getHistory } from "../actions";
+import { getCurrentSession, getHistory, getMenu } from "../actions";
 import Navbar from "@/components/Navbar";
 import HistoryClient from "@/components/HistoryClient";
 
@@ -9,7 +9,10 @@ export default async function HistoryPage() {
         return null;
     }
 
-    const history = await getHistory();
+    const [history, menuItems] = await Promise.all([
+        getHistory(),
+        getMenu()
+    ]);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -25,7 +28,7 @@ export default async function HistoryPage() {
                         Riwayat pemasukan dan pengeluaran cabang {session.branch_name}
                     </p>
 
-                    <HistoryClient history={history} />
+                    <HistoryClient history={history} menuItems={menuItems} />
                 </div>
             </main>
         </div>

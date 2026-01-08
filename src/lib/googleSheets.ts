@@ -54,6 +54,7 @@ export interface Recipe {
   menu_name: string;
   sell_price: number;
   ingredients: string; // "item_id:qty, item_id:qty"
+  category: string; // "Coffee" or "Non Coffee"
 }
 
 export interface Sale {
@@ -127,6 +128,7 @@ export async function getAllRecipes(): Promise<Recipe[]> {
     menu_name: row.get("menu_name"),
     sell_price: parseFloat(row.get("sell_price")) || 0,
     ingredients: row.get("ingredients") || "",
+    category: row.get("category") || "Coffee",
   }));
 }
 
@@ -345,13 +347,13 @@ export async function getDailySalesForWeek(
 // ================= HISTORY & DATE RANGE FUNCTIONS =================
 
 // Get All Sales by Branch (for history)
-export async function getAllSalesByBranch(branchId: string): Promise<Sale[]> {
+export async function getAllSalesByBranch(branchId: string): Promise<(Sale & { rowIndex: number })[]> {
   const doc = await getDoc();
   const sheet = doc.sheetsByTitle[SHEET_SALES];
   if (!sheet) throw new Error("Sheet 'sales' not found");
 
   const rows = await sheet.getRows();
-  const sales: Sale[] = [];
+  const sales: (Sale & { rowIndex: number })[] = [];
 
   for (const row of rows) {
     if (row.get("branch_id") === branchId) {
@@ -363,6 +365,7 @@ export async function getAllSalesByBranch(branchId: string): Promise<Sale[]> {
         total_price: parseFloat(row.get("total_price")) || 0,
         cogs_total: parseFloat(row.get("cogs_total")) || 0,
         profit: parseFloat(row.get("profit")) || 0,
+        rowIndex: row.rowNumber,
       });
     }
   }
@@ -478,4 +481,71 @@ export async function getDailySalesForRange(
     date,
     income,
   }));
+}
+
+// ================= DELETE & UPDATE FUNCTIONS =================
+
+// Delete Sale Record by rowIndex
+export async function deleteSaleRecord(rowNumber: number): Promise<void> {
+  const doc = await getDoc();
+  const sheet = doc.sheetsByTitle[SHEET_SALES];
+  if (!sheet) throw new Error("Sheet 'sales' not found");
+
+  const rows = await sheet.getRows();
+  const row = rows.find((r) => r.rowNumber === rowNumber);
+  if (row) {
+    await row.delete();
+  }
+}
+
+// Update Sale Record by rowIndex
+export async function updateSaleRecord(
+  rowNumber: number,
+  data: { menu_name: string; qty: number; total_price: number }
+): Promise<void> {
+  const doc = await getDoc();
+  const sheet = doc.sheetsByTitle[SHEET_SALES];
+  if (!sheet) throw new Error("Sheet 'sales' not found");
+
+  const rows = await sheet.getRows();
+  const row = rows.find((r) => r.rowNumber === rowNumber);
+  if (row) {
+    row.set("menu_name", data.menu_name);
+    row.set("qty", data.qty.toString());
+    row.set("total_price", data.total_price.toString());
+    await row.save();
+  }
+}
+
+// Delete Expense Record by rowIndex
+export async function deleteExpenseRecord(rowNumber: number): Promise<void> {
+  const doc = await getDoc();
+  const sheet = doc.sheetsByTitle[SHEET_EXPENSES];
+  if (!sheet) throw new Error("Sheet 'expenses' not found");
+
+  const rows = await sheet.getRows();
+  const row = rows.find((r) => r.rowNumber === rowNumber);
+  if (row) {
+    await row.delete();
+  }
+}
+
+// Update Expense Record by rowIndex
+export async function updateExpenseRecord(
+  rowNumber: number,
+  data: { item_name: string; amount: number; category: string; note: string }
+): Promise<void> {
+  const doc = await getDoc();
+  const sheet = doc.sheetsByTitle[SHEET_EXPENSES];
+  if (!sheet) throw new Error("Sheet 'expenses' not found");
+
+  const rows = await sheet.getRows();
+  const row = rows.find((r) => r.rowNumber === rowNumber);
+  if (row) {
+    row.set("item_name", data.item_name);
+    row.set("amount", data.amount.toString());
+    row.set("category", data.category);
+    row.set("note", data.note);
+    await row.save();
+  }
 }

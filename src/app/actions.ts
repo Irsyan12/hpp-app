@@ -13,6 +13,10 @@ import {
     getSalesByBranchDateRange,
     getExpensesByBranchDateRange,
     getDailySalesForRange,
+    deleteSaleRecord,
+    updateSaleRecord,
+    deleteExpenseRecord,
+    updateExpenseRecord,
     type InventoryItem as InventoryItemType,
     type Expense as ExpenseType,
     type Sale as SaleType,
@@ -75,6 +79,7 @@ export async function logout(): Promise<void> {
 export interface MenuItem {
     menu_name: string;
     sell_price: number;
+    category: string;
 }
 
 export async function getMenu(): Promise<MenuItem[]> {
@@ -89,6 +94,7 @@ export async function getMenu(): Promise<MenuItem[]> {
     const menuItems: MenuItem[] = recipes.map((recipe) => ({
         menu_name: recipe.menu_name,
         sell_price: recipe.sell_price,
+        category: recipe.category,
     }));
 
     return menuItems;
@@ -340,6 +346,42 @@ export async function getAllExpenses(): Promise<Expense[]> {
     return await getExpensesByBranch(session.branch_id);
 }
 
+export interface ExpensesWithDateRange {
+    expenses: Expense[];
+    startDate: string;
+    endDate: string;
+}
+
+export async function getExpensesWithDateRange(
+    startDate?: string,
+    endDate?: string
+): Promise<ExpensesWithDateRange> {
+    const session = await getSession();
+    if (!session) {
+        redirect("/login");
+    }
+
+    // Default to today if no dates provided (using Jakarta timezone)
+    const now = new Date();
+    const jakartaNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+    const todayStr = `${jakartaNow.getFullYear()}-${String(jakartaNow.getMonth() + 1).padStart(2, "0")}-${String(jakartaNow.getDate()).padStart(2, "0")}`;
+
+    const start = startDate || todayStr;
+    const end = endDate || todayStr;
+
+    // Use proper date range filtering from googleSheets
+    const { expenses } = await getExpensesByBranchDateRange(session.branch_id, start, end);
+
+    // Sort by date descending
+    expenses.sort((a, b) => b.date.localeCompare(a.date));
+
+    return {
+        expenses: expenses,
+        startDate: start,
+        endDate: end,
+    };
+}
+
 // ================= HISTORY ACTIONS =================
 
 export type Sale = SaleType;
@@ -350,6 +392,12 @@ export interface HistoryItem {
     description: string;
     amount: number;
     category?: string;
+    rowIndex: number;
+    source: "sale" | "expense";
+    // For editing sales
+    qty?: number;
+    // For editing expenses
+    note?: string;
 }
 
 export async function getHistory(): Promise<HistoryItem[]> {
@@ -373,6 +421,9 @@ export async function getHistory(): Promise<HistoryItem[]> {
             type: "income",
             description: sale.menu_name,
             amount: sale.total_price,
+            rowIndex: sale.rowIndex,
+            source: "sale",
+            qty: sale.qty,
         });
     }
 
@@ -383,6 +434,9 @@ export async function getHistory(): Promise<HistoryItem[]> {
             description: expense.item_name,
             amount: expense.amount,
             category: expense.category,
+            rowIndex: expense.rowIndex!,
+            source: "expense",
+            note: expense.note,
         });
     }
 
@@ -395,4 +449,77 @@ export async function getHistory(): Promise<HistoryItem[]> {
 
     return historyItems;
 }
+
+// Delete History Item
+export interface DeleteHistoryResult {
+    success: boolean;
+    error?: string;
+}
+
+export async function deleteHistoryItem(
+    rowIndex: number,
+    source: "sale" | "expense"
+): Promise<DeleteHistoryResult> {
+    const session = await getSession();
+    if (!session) {
+        return { success: false, error: "Sesi tidak valid" };
+    }
+
+    try {
+        if (source === "sale") {
+            await deleteSaleRecord(rowIndex);
+        } else {
+            await deleteExpenseRecord(rowIndex);
+        }
+        return { success: true };
+    } catch (error) {
+        console.error("Delete history error:", error);
+        return { success: false, error: "Terjadi kesalahan saat menghapus data" };
+    }
+}
+
+// Edit History Item
+export interface EditHistoryResult {
+    success: boolean;
+    error?: string;
+}
+
+export async function editHistoryItem(
+    rowIndex: number,
+    source: "sale" | "expense",
+    data: {
+        description: string;
+        amount: number;
+        qty?: number;
+        category?: string;
+        note?: string;
+    }
+): Promise<EditHistoryResult> {
+    const session = await getSession();
+    if (!session) {
+        return { success: false, error: "Sesi tidak valid" };
+    }
+
+    try {
+        if (source === "sale") {
+            await updateSaleRecord(rowIndex, {
+                menu_name: data.description,
+                qty: data.qty || 1,
+                total_price: data.amount,
+            });
+        } else {
+            await updateExpenseRecord(rowIndex, {
+                item_name: data.description,
+                amount: data.amount,
+                category: data.category || "",
+                note: data.note || "",
+            });
+        }
+        return { success: true };
+    } catch (error) {
+        console.error("Edit history error:", error);
+        return { success: false, error: "Terjadi kesalahan saat mengedit data" };
+    }
+}
+
 

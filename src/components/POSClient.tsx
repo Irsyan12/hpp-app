@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ShoppingCart, Plus, Minus, Trash2, CreditCard, Coffee, AlertCircle, CheckCircle, X, ChevronUp } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, CreditCard, Coffee, AlertCircle, CheckCircle, X, ChevronUp, Search, Droplet } from "lucide-react";
 import { processSale, type MenuItem, type CartItem, type SaleResult } from "@/app/actions";
 import toast from "react-hot-toast";
 
@@ -10,12 +10,29 @@ interface POSClientProps {
     initialMenu: MenuItem[];
 }
 
+const CATEGORIES = ["Semua", "Coffee", "Non Coffee"] as const;
+type Category = (typeof CATEGORIES)[number];
+
 export default function POSClient({ initialMenu }: POSClientProps) {
     const router = useRouter();
     const [cart, setCart] = useState<CartItem[]>([]);
     const [showCart, setShowCart] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [result, setResult] = useState<SaleResult | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<Category>("Semua");
+    const [searchQuery, setSearchQuery] = useState("");
+
+    // Filter menu based on category and search
+    const filteredMenu = useMemo(() => {
+        return initialMenu.filter((item) => {
+            const matchesCategory =
+                selectedCategory === "Semua" || item.category === selectedCategory;
+            const matchesSearch = item.menu_name
+                .toLowerCase()
+                .includes(searchQuery.toLowerCase());
+            return matchesCategory && matchesSearch;
+        });
+    }, [initialMenu, selectedCategory, searchQuery]);
 
     const addToCart = (item: MenuItem) => {
         setCart((prev) => {
@@ -96,25 +113,83 @@ export default function POSClient({ initialMenu }: POSClientProps) {
 
     return (
         <>
-            {/* Menu Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 pb-24 md:pb-20">
-                {initialMenu.map((item) => (
+            {/* Search Bar */}
+            <div className="mb-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Cari menu..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-gray-900 placeholder-gray-400"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"
+                        >
+                            <X className="w-4 h-4 text-gray-400" />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Category Tabs */}
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-1 px-1">
+                {CATEGORIES.map((category) => (
                     <button
-                        key={item.menu_name}
-                        onClick={() => addToCart(item)}
-                        className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] hover:cursor-pointer"
+                        key={category}
+                        onClick={() => setSelectedCategory(category)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm whitespace-nowrap transition-all ${selectedCategory === category
+                                ? "bg-amber-600 text-white shadow-md"
+                                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                            }`}
                     >
-                        <div className="flex items-center justify-center w-12 h-12 bg-amber-100 rounded-xl mb-3">
-                            <Coffee className="w-6 h-6 text-amber-700" />
-                        </div>
-                        <h3 className="font-semibold text-gray-800 text-sm sm:text-base truncate">
-                            {item.menu_name}
-                        </h3>
-                        <p className="text-amber-700 font-bold mt-1">
-                            {formatCurrency(item.sell_price)}
-                        </p>
+                        {category === "Coffee" && <Coffee className="w-4 h-4" />}
+                        {category === "Non Coffee" && <Droplet className="w-4 h-4" />}
+                        {category}
                     </button>
                 ))}
+            </div>
+
+            {/* Menu Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 pb-24 md:pb-20">
+                {filteredMenu.length === 0 ? (
+                    <div className="col-span-full text-center py-12 text-gray-500">
+                        <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                        <p className="font-medium">Menu tidak ditemukan</p>
+                        <p className="text-sm">Coba kata kunci lain atau ubah kategori</p>
+                    </div>
+                ) : (
+                    filteredMenu.map((item) => (
+                        <button
+                            key={item.menu_name}
+                            onClick={() => addToCart(item)}
+                            className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] hover:cursor-pointer"
+                        >
+                            <div className={`flex items-center justify-center w-12 h-12 rounded-xl mb-3 ${item.category === "Coffee"
+                                    ? "bg-amber-100"
+                                    : "bg-blue-100"
+                                }`}>
+                                {item.category === "Coffee" ? (
+                                    <Coffee className="w-6 h-6 text-amber-700" />
+                                ) : (
+                                    <Droplet className="w-6 h-6 text-blue-600" />
+                                )}
+                            </div>
+                            <h3 className="font-semibold text-gray-800 text-sm sm:text-base truncate">
+                                {item.menu_name}
+                            </h3>
+                            <p className="text-amber-700 font-bold mt-1">
+                                {formatCurrency(item.sell_price)}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                                {item.category}
+                            </p>
+                        </button>
+                    ))
+                )}
             </div>
 
             {/* Fixed Bottom Cart Bar - Both Mobile & Desktop */}
